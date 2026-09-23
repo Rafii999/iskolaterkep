@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="hu" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UMSZKI Iskolatérkép</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0B0F19; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        
+        body {
+            overflow-y: auto;
+            min-height: 100vh;
+            background: #0B0F19;
+        }
+        
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.95);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(59, 130, 246, 0.15);
+        }
+        
+        .room-shape {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .room-shape:hover {
+            filter: brightness(1.3) drop-shadow(0 0 8px rgba(6, 182, 212, 0.6));
+        }
+        
+        .selected-room {
+            stroke: #22D3EE !important;
+            stroke-width: 3 !important;
+            filter: drop-shadow(0 0 15px rgba(6, 182, 212, 0.9)) brightness(1.2) !important;
+            animation: pulse 1.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from { filter: drop-shadow(0 0 5px rgba(6,182,212,0.5)) brightness(1.2); }
+            to { filter: drop-shadow(0 0 20px rgba(6,182,212,1)) brightness(1.3); }
+        }
+        
+        .room-item { 
+            transition: all 0.2s; 
+            border-left: 3px solid transparent;
+        }
+        .room-item:hover { 
+            background: rgba(59, 130, 246, 0.2); 
+            border-left-color: #3B82F6;
+        }
+        .room-item.active { 
+            background: rgba(6, 182, 212, 0.3); 
+            border-left-color: #06B6D4;
+        }
+        
+        .map-container {
+            position: sticky;
+            top: 80px;
+            height: calc(100vh - 100px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .building-outline {
+            fill: #1E293B;
+            fill-opacity: 0.25;
+            stroke: #475569;
+            stroke-width: 3;
+            stroke-linejoin: round;
+        }
+    </style>
+</head>
+<body class="text-slate-100 font-sans antialiased">
+
+    <header class="sticky top-0 z-50 glass-panel border-b border-slate-800 px-4 lg:px-8 py-3.5 flex items-center justify-between shadow-xl">
+        <div class="flex items-center space-x-3.5">
+            <div class="bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-3 rounded-2xl shadow-lg text-white">
+                <i class="fa-solid fa-school text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-base lg:text-lg tracking-tight text-white">UMSZKI Térkép</h1>
+                <p class="text-xs text-slate-400 font-medium">Görgey Artúr u. 26.</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="relative w-64 lg:w-80">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-cyan-400">
+                    <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                </span>
+                <input type="text" id="searchInput" placeholder="Keresés (pl. 127, 223, Matek...)" 
+                    class="w-full pl-10 pr-4 py-2.5 bg-slate-900/90 border border-slate-700/80 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-all">
+            </div>
+            <button onclick="resetView()" class="px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-cyan-400 rounded-xl border border-slate-700 transition-all text-sm font-semibold">
+                <i class="fa-solid fa-rotate-right mr-2"></i> Összes
+            </button>
+        </div>
+    </header>
+
+    <div class="flex min-h-screen">
+        <aside class="w-80 glass-panel border-r border-slate-800 flex flex-col z-20 shadow-2xl min-h-screen">
+            <div class="p-4 border-b border-slate-800 bg-slate-900/50 shrink-0">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Termek (10.D órarend)</h3>
+            </div>
+            <div id="roomList" class="flex-1 overflow-y-auto p-3 space-y-1 pb-20"></div>
+        </aside>
+
+        <div class="flex-1 relative bg-slate-950">
+            <div class="map-container p-4">
+                <div id="svgContainer"></div>
+            </div>
+        </div>
+
+        <div id="infoPanel" class="w-96 glass-panel border-l border-slate-800 shadow-2xl transform translate-x-full transition-transform duration-300 fixed right-0 top-[73px] bottom-0 z-30 flex flex-col overflow-hidden">
+            <div class="p-5 border-b border-slate-800 bg-slate-900/50 shrink-0">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <span id="infoRoomId" class="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded-lg border border-cyan-500/20">127</span>
+                        <h2 id="infoRoomName" class="text-xl font-bold text-white mt-1">Matematika</h2>
+                        <span id="infoFloor" class="text-xs text-slate-400">1. Emelet</span>
+                    </div>
+                    <button onclick="closeInfo()" class="text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-lg">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-5 space-y-4">
+                <p id="infoDesc" class="text-sm text-slate-300 leading-relaxed bg-slate-900/60 p-3 rounded-xl border border-slate-800"></p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Felelős</span>
+                        <p id="infoTeacher" class="text-sm font-semibold text-white">-</p>
+                    </div>
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Kapacitás</span>
+                        <p id="infoCapacity" class="text-sm font-semibold text-white">-</p>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Felszereltség</h4>
+                    <div id="infoEquipment" class="flex flex-wrap gap-2"></div>
+                </div>
+                <div class="bg-gradient-to-br from-cyan-950/40 to-blue-950/40 rounded-xl p-4 border border-cyan-500/20">
+                    <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-3 flex items-center">
+                        <i class="fa-solid fa-route mr-2"></i> Útvonal a főbejárattól
+                    </h4>
+                    <div id="infoRoute" class="space-y-2 text-sm text-slate-300"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const allRooms = [
+            { id: "2", name: "IKT1 Labor", floor: "Földszint", floorNum: 0, teacher: "Bodó A.", capacity: "32", desc: "Informatika terem (IKT1)", equipment: ["32 PC", "Projektor"], route: ["Főbejárat", "Jobbra", "Első terem"], x: 480, y: 390, w: 100, h: 70, color: "#3B82F6" },
+            { id: "17", name: "ITávA2", floor: "Földszint", floorNum: 0, teacher: "Nagy Z.", capacity: "30", desc: "ITávA2 terem", equipment: ["PC-k", "Tábla"], route: ["Főbejárat", "Jobbra", "Második terem"], x: 600, y: 390, w: 100, h: 70, color: "#3B82F6" },
+            
+            { id: "127", name: "Matematika", floor: "1. Emelet", floorNum: 1, teacher: "Kovácsné", capacity: "32", desc: "Matematika szaktanterem", equipment: ["Tábla", "Projektor"], route: ["Lépcső", "1. emelet", "Balra"], x: 100, y: 230, w: 100, h: 75, color: "#06B6D4" },
+            { id: "183", name: "Angol (183)", floor: "1. Emelet", floorNum: 1, teacher: "Váni", capacity: "28", desc: "Angol nyelvi terem", equipment: ["Hangfalak"], route: ["Lépcső", "1. emelet", "Balra"], x: 210, y: 230, w: 95, h: 75, color: "#06B6D4" },
+            { id: "187", name: "Angol (187)", floor: "1. Emelet", floorNum: 1, teacher: "Váni", capacity: "28", desc: "Angol nyelvi terem", equipment: ["Hangfalak"], route: ["Lépcső", "1. emelet", "Balra"], x: 315, y: 230, w: 95, h: 75, color: "#06B6D4" },
+            { id: "211", name: "Történelem", floor: "1. Emelet", floorNum: 1, teacher: "MP", capacity: "32", desc: "Történelem terem", equipment: ["Térképek", "Projektor"], route: ["Lépcső", "1. emelet", "Szemben"], x: 425, y: 230, w: 100, h: 75, color: "#06B6D4" },
+            { id: "218", name: "Irodalom", floor: "1. Emelet", floorNum: 1, teacher: "WL", capacity: "32", desc: "Irodalom terem", equipment: ["Projektor"], route: ["Lépcső", "1. emelet", "Jobbra"], x: 535, y: 230, w: 100, h: 75, color: "#06B6D4" },
+            { id: "219", name: "Történelem (219)", floor: "1. Emelet", floorNum: 1, teacher: "MP", capacity: "32", desc: "Történelem terem", equipment: ["Térképek"], route: ["Lépcső", "1. emelet", "Jobbra"], x: 645, y: 230, w: 95, h: 75, color: "#06B6D4" },
+            
+            { id: "212", name: "Angol (212)", floor: "2. Emelet", floorNum: 2, teacher: "Váni", capacity: "28", desc: "Angol nyelvi terem", equipment: ["Hangfalak"], route: ["Lépcső", "2. emelet", "Balra"], x: 100, y: 100, w: 100, h: 75, color: "#8B5CF6" },
+            { id: "223", name: "Angol (223)", floor: "2. Emelet", floorNum: 2, teacher: "Váni", capacity: "28", desc: "Angol nyelvi terem", equipment: ["Hangfalak"], route: ["Lépcső", "2. emelet", "Balra"], x: 210, y: 100, w: 95, h: 75, color: "#8B5CF6" },
+            { id: "236", name: "Fizika", floor: "2. Emelet", floorNum: 2, teacher: "MI", capacity: "28", desc: "Fizika labor", equipment: ["Kísérletek", "Műszerek"], route: ["Lépcső", "2. emelet", "Jobbra"], x: 315, y: 100, w: 115, h: 75, color: "#8B5CF6" },
+            
+            { id: "306", name: "Matematika (306)", floor: "3. Emelet", floorNum: 3, teacher: "KK", capacity: "32", desc: "Matematika terem", equipment: ["Tábla"], route: ["Lépcső", "3. emelet", "Jobbra"], x: 440, y: 100, w: 115, h: 75, color: "#7C3AED" },
+            
+            { id: "AULA", name: "Aula", floor: "Földszint", floorNum: 0, teacher: "-", capacity: "120", desc: "Főaula", equipment: ["Padok"], route: ["Főbejárat", "Belépés"], x: 240, y: 360, w: 180, h: 120, color: "#2563EB" },
+            { id: "PORTA", name: "Porta", floor: "Földszint", floorNum: 0, teacher: "Portás", capacity: "-", desc: "Portaszolgálat", equipment: ["Kamera"], route: ["Főbejárat"], x: 140, y: 400, w: 80, h: 60, color: "#1E40AF" }
+        ];
+
+        let selectedRoomId = null;
+
+        function init() {
+            renderMap();
+            renderRoomList();
+        }
+
+        function renderMap() {
+            const container = document.getElementById('svgContainer');
+            const width = 850;
+            const height = 580;
+            
+            let svg = `
+                <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="filter: drop-shadow(0 10px 30px rgba(0,0,0,0.5));">
+                    <defs>
+                        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1E293B" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+                    
+                    <rect width="${width}" height="${height}" fill="#0B0F19" rx="16"/>
+                    <rect width="${width}" height="${height}" fill="url(#grid)" opacity="0.3"/>
+                    
+                    <path d="M 70 70 
+                             L 780 70 
+                             L 780 200 
+                             L 750 200 
+                             L 750 350 
+                             L 780 350 
+                             L 780 510 
+                             L 70 510 
+                             L 70 350 
+                             L 120 350 
+                             L 120 200 
+                             L 70 200 Z" 
+                          class="building-outline"/>
+                    
+                    <rect x="250" y="220" width="350" height="110" fill="#0B0F19" stroke="#334155" stroke-width="2" stroke-dasharray="6 6" opacity="0.4" rx="6"/>
+                    
+                    <line x1="70" y1="195" x2="780" y2="195" stroke="#475569" stroke-width="2" stroke-dasharray="8 4" opacity="0.6"/>
+                    <line x1="70" y1="345" x2="780" y2="345" stroke="#475569" stroke-width="2" stroke-dasharray="8 4" opacity="0.6"/>
+                    
+                    <text x="35" y="140" fill="#64748B" font-size="11" font-weight="bold" text-anchor="middle" transform="rotate(-90 35 140)">2-3. EMELET</text>
+                    <text x="35" y="275" fill="#64748B" font-size="11" font-weight="bold" text-anchor="middle" transform="rotate(-90 35 275)">1. EMELET</text>
+                    <text x="35" y="430" fill="#64748B" font-size="11" font-weight="bold" text-anchor="middle" transform="rotate(-90 35 430)">FÖLDSZINT</text>
+                    
+                    <rect x="360" y="70" width="130" height="275" fill="#1E293B" stroke="#475569" stroke-width="1.5" opacity="0.25"/>
+                    <text x="425" y="210" fill="#64748B" font-size="11" text-anchor="middle" font-weight="bold">KÖZPONT / LÉPCSŐ</text>
+                    
+                    <rect x="390" y="500" width="70" height="15" fill="#06B6D4" opacity="0.8" rx="3"/>
+                    <text x="425" y="540" fill="#94A3B8" font-size="12" font-weight="600" text-anchor="middle">Főbejárat (Görgey Artúr u.)</text>
+            `;
+            
+            allRooms.forEach(room => {
+                const isSelected = selectedRoomId === room.id;
+                const strokeWidth = isSelected ? 4 : 2;
+                const strokeColor = isSelected ? '#22D3EE' : '#1E293B';
+                
+                svg += `
+                    <g id="room-${room.id}" class="room-group" onclick="selectRoom('${room.id}')">
+                        <rect x="${room.x}" y="${room.y}" width="${room.w}" height="${room.h}" 
+                              fill="${room.color}" stroke="${strokeColor}" stroke-width="${strokeWidth}" 
+                              rx="6" class="room-shape ${isSelected ? 'selected-room' : ''}"/>
+                        <text x="${room.x + room.w/2}" y="${room.y + room.h/2 - 4}" 
+                              fill="white" font-size="11" font-weight="700" text-anchor="middle" 
+                              font-family="Inter" pointer-events="none">${room.id}</text>
+                        <text x="${room.x + room.w/2}" y="${room.y + room.h/2 + 10}" 
+                              fill="rgba(255,255,255,0.9)" font-size="9" font-weight="500" text-anchor="middle" 
+                              font-family="Inter" pointer-events="none">${room.name.length > 11 ? room.name.substring(0,9)+'..' : room.name}</text>
+                    </g>
+                `;
+            });
+            
+            svg += `</svg>`;
+            container.innerHTML = svg;
+        }
+
+        function renderRoomList() {
+            const container = document.getElementById('roomList');
+            container.innerHTML = '';
+            
+            const floors = ['Földszint', '1. Emelet', '2. Emelet', '3. Emelet'];
+            const floorColors = ['bg-blue-500', 'bg-cyan-500', 'bg-violet-500', 'bg-purple-600'];
+            
+            floors.forEach((floorName, idx) => {
+                const rooms = allRooms.filter(r => r.floor === floorName);
+                if (rooms.length === 0) return;
+                
+                const floorDiv = document.createElement('div');
+                floorDiv.className = "mb-4";
+                floorDiv.innerHTML = `
+                    <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-2 flex items-center">
+                        <span class="w-2 h-2 rounded-full mr-2 ${floorColors[idx]}"></span>
+                        ${floorName}
+                    </div>
+                `;
+                
+                rooms.sort((a,b) => parseInt(a.id) - parseInt(b.id)).forEach(room => {
+                    const item = document.createElement('div');
+                    item.className = `room-item p-3 rounded-lg cursor-pointer mb-1 ${selectedRoomId === room.id ? 'active' : 'bg-slate-900/40'}`;
+                    item.onclick = () => selectRoom(room.id);
+                    item.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-bold text-cyan-400">${room.id}</span>
+                                <p class="text-sm font-medium text-slate-200 leading-tight mt-0.5">${room.name}</p>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-xs text-slate-600"></i>
+                        </div>
+                    `;
+                    floorDiv.appendChild(item);
+                });
+                
+                container.appendChild(floorDiv);
+            });
+        }
+
+        function selectRoom(roomId) {
+            const room = allRooms.find(r => r.id === roomId);
+            if (!room) return;
+            
+            selectedRoomId = roomId;
+            renderMap();
+            renderRoomList();
+            showInfo(room);
+        }
+
+        function showInfo(room) {
+            const panel = document.getElementById('infoPanel');
+            
+            document.getElementById('infoRoomId').textContent = room.id;
+            document.getElementById('infoRoomName').textContent = room.name;
+            document.getElementById('infoFloor').textContent = room.floor;
+            document.getElementById('infoDesc').textContent = room.desc;
+            document.getElementById('infoTeacher').textContent = room.teacher;
+            document.getElementById('infoCapacity').textContent = room.capacity + (room.capacity !== '-' ? ' fő' : '');
+            
+            const eqContainer = document.getElementById('infoEquipment');
+            eqContainer.innerHTML = '';
+            room.equipment.forEach(eq => {
+                const tag = document.createElement('span');
+                tag.className = "px-2 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-300 font-medium";
+                tag.textContent = eq;
+                eqContainer.appendChild(tag);
+            });
+            
+            const routeContainer = document.getElementById('infoRoute');
+            routeContainer.innerHTML = '';
+            room.route.forEach((step, idx) => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = "flex items-start space-x-2";
+                stepDiv.innerHTML = `
+                    <span class="flex-shrink-0 w-5 h-5 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white">${idx + 1}</span>
+                    <span class="leading-tight">${step}</span>
+                `;
+                routeContainer.appendChild(stepDiv);
+            });
+            
+            panel.classList.remove('translate-x-full');
+        }
+
+        function closeInfo() {
+            document.getElementById('infoPanel').classList.add('translate-x-full');
+            selectedRoomId = null;
+            renderMap();
+            renderRoomList();
+        }
+
+        function resetView() {
+            closeInfo();
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const items = document.querySelectorAll('.room-item');
+            const floors = document.querySelectorAll('#roomList > div');
+            
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(query) ? 'flex' : 'none';
+            });
+            
+            floors.forEach(floor => {
+                const visibleRooms = floor.querySelectorAll('.room-item:not([style*="display: none"])');
+                floor.style.display = visibleRooms.length > 0 ? 'block' : 'none';
+            });
+        });
+
+        window.onload = init;
+    </script>
+</body>
+</html>
