@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>UMSZKI Térkép</title>
+<style>
+:root{--bg:#02040a;--pn:rgba(6,12,28,.82);--ln:rgba(59,130,246,.2);--tx:#e6efff;--mut:#7f93b8;--glow:0 0 22px rgba(59,130,246,.5)}
+*{box-sizing:border-box}[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{background:radial-gradient(900px 500px at 8% -10%,rgba(37,99,235,.3),transparent 60%),radial-gradient(700px 500px at 100% 110%,rgba(14,165,233,.2),transparent 60%),var(--bg);color:var(--tx);font:14px/1.4 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+button,input{font:inherit;color:inherit}
+*{scrollbar-width:thin;scrollbar-color:#1d4ed8 transparent}
+header{position:relative;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top));background:var(--pn);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);z-index:10}
+header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,#3b82f6,#0ea5e9,transparent);background-size:200% 100%;animation:sh 6s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.logo{display:flex;align-items:center;gap:12px;margin-right:auto}
+.logo b{display:grid;place-items:center;width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#1d4ed8,#0ea5e9);font-size:20px;animation:gl 3s ease-in-out infinite alternate;transition:transform .3s}
+.logo:hover b{transform:rotate(-8deg) scale(1.08)}
+@keyframes gl{from{box-shadow:0 0 6px #1d4ed888}to{box-shadow:0 0 24px #3b82f6}}
+.logo h1{margin:0;font-size:17px;font-weight:800;letter-spacing:-.02em;background:linear-gradient(90deg,#fff,#60a5fa);-webkit-background-clip:text;background-clip:text;color:transparent}
+.logo small{color:var(--mut);font-size:12px}
+#q{width:290px;max-width:100%;padding:10px 14px;background:rgba(2,6,23,.8);border:1px solid rgba(59,130,246,.3);border-radius:12px;outline:none;transition:.2s}
+#q::placeholder{color:#5b6f96}
+#q:focus{border-color:#60a5fa;box-shadow:var(--glow);width:340px}
+.btn,.zc button{padding:9px 13px;background:linear-gradient(180deg,rgba(30,58,138,.55),rgba(8,15,35,.85));border:1px solid rgba(59,130,246,.38);border-radius:12px;cursor:pointer;color:#93c5fd;font-weight:600;text-decoration:none;font-size:13px;white-space:nowrap;transition:transform .18s,box-shadow .18s,border-color .18s,color .18s}
+.btn:hover,.zc button:hover{transform:translateY(-2px);box-shadow:var(--glow);border-color:#60a5fa;color:#fff}
+.btn:active,.zc button:active{transform:translateY(0) scale(.97)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--ln)}
+.chip{padding:5px 11px;border-radius:99px;border:1px solid rgba(59,130,246,.3);background:transparent;cursor:pointer;font-size:12px;color:var(--mut);transition:.18s}
+.chip:hover{color:#fff;border-color:#60a5fa;transform:translateY(-1px)}
+.chip.on{background:linear-gradient(135deg,#2563eb,#0ea5e9);color:#fff;border-color:transparent;font-weight:700;box-shadow:0 0 14px rgba(37,99,235,.6)}
+main{flex:1;min-height:0;display:grid;grid-template-columns:310px 1fr;position:relative}
+aside{display:flex;flex-direction:column;min-height:0;background:var(--pn);border-right:1px solid var(--ln)}
+#list{flex:1;overflow-y:auto;padding:8px}
+.fl{font-size:11px;font-weight:800;color:#3b82f6;text-transform:uppercase;letter-spacing:.1em;margin:12px 6px 5px}
+.it{display:block;width:100%;text-align:left;padding:9px 12px;margin-bottom:4px;background:rgba(15,23,42,.55);border:1px solid transparent;border-left:3px solid transparent;border-radius:10px;cursor:pointer;transition:transform .18s,background .18s,border-color .18s,box-shadow .18s}
+.it:hover{transform:translateX(5px);background:linear-gradient(90deg,rgba(37,99,235,.35),rgba(15,23,42,.4));border-left-color:#60a5fa;box-shadow:0 4px 18px rgba(37,99,235,.25)}
+.it.on{background:linear-gradient(90deg,rgba(14,165,233,.4),rgba(37,99,235,.2));border-color:rgba(96,165,250,.5);border-left-color:#22d3ee;box-shadow:var(--glow)}
+.it i{font-style:normal;font-weight:800;color:#60a5fa;font-size:12px;display:block}
+.it span{font-size:13px}.it em{display:block;font-style:normal;font-size:11px;color:var(--mut)}
+#none{display:none;padding:28px;text-align:center;color:var(--mut)}
+.mapwrap{position:relative;overflow:hidden;touch-action:none;cursor:grab;background:radial-gradient(circle at 50% 40%,#061230,#02040a 70%)}
+.mapwrap.grab{cursor:grabbing}
+#svgc,svg{width:100%;height:100%;display:block;user-select:none;-webkit-user-select:none}
+.room{cursor:pointer;outline:none;transform-box:fill-box;transform-origin:center;transition:transform .22s cubic-bezier(.3,1.6,.5,1),opacity .2s,filter .2s}
+.room rect{stroke:rgba(147,197,253,.4);stroke-width:1.5}
+.room:hover,.room:focus-visible{transform:scale(1.08);filter:drop-shadow(0 0 9px #3b82f6) brightness(1.3)}
+.room.dim{opacity:.15}
+.room.sel{transform:scale(1.08);animation:pulse 1.5s ease-in-out infinite alternate}
+.room.sel rect{stroke:#e0f2fe;stroke-width:3}
+@keyframes pulse{from{filter:drop-shadow(0 0 4px #3b82f6) brightness(1.15)}to{filter:drop-shadow(0 0 18px #60a5fa) brightness(1.45)}}
+.room text{pointer-events:none;fill:#fff;text-anchor:middle}
+.zc{position:absolute;top:14px;left:14px;display:flex;flex-direction:column;align-items:center;gap:6px;z-index:3}
+.zc button{width:42px;height:42px;padding:0;font-size:20px;line-height:1}
+.zc span{font-size:11px;color:#60a5fa;font-weight:700;font-variant-numeric:tabular-nums}
+.hint{position:absolute;bottom:12px;left:14px;font-size:11px;color:#5b6f96;pointer-events:none}
+#info{position:absolute;top:0;right:0;bottom:0;width:350px;max-width:100%;background:rgba(4,9,22,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-left:1px solid rgba(59,130,246,.35);box-shadow:-12px 0 40px rgba(0,0,0,.6),-1px 0 24px rgba(37,99,235,.25);transform:translateX(105%);transition:transform .35s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column;z-index:5}
+#info.open{transform:none}
+.ih{padding:16px 18px;border-bottom:1px solid var(--ln);display:flex;justify-content:space-between;gap:8px;background:linear-gradient(180deg,rgba(37,99,235,.18),transparent)}
+.badge{display:inline-block;color:#fff;background:linear-gradient(135deg,#2563eb,#0ea5e9);border-radius:9px;padding:3px 10px;font-weight:800;font-size:12px;box-shadow:0 0 14px rgba(37,99,235,.6)}
+.ih h2{margin:8px 0 2px;font-size:20px}.ih small{color:var(--mut)}
+.x{background:none;border:0;font-size:24px;cursor:pointer;color:var(--mut);height:38px;width:38px;border-radius:10px;transition:.2s}
+.x:hover{background:rgba(37,99,235,.3);color:#fff;transform:rotate(90deg)}
+.ib{flex:1;overflow-y:auto;padding:14px 18px;display:grid;gap:12px;align-content:start}
+.box{background:rgba(15,23,42,.6);border:1px solid var(--ln);border-radius:14px;padding:11px 13px;transition:transform .2s,border-color .2s,box-shadow .2s}
+.box:hover{transform:translateY(-2px);border-color:rgba(96,165,250,.55);box-shadow:0 6px 22px rgba(37,99,235,.25)}
+#info.open .box{animation:rise .45s both}
+#info.open .box:nth-child(2){animation-delay:.05s}#info.open .box:nth-child(3){animation-delay:.1s}#info.open .box:nth-child(4){animation-delay:.15s}#info.open .box:nth-child(5){animation-delay:.2s}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.box h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#3b82f6}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.g2 .box{animation:none!important}
+.tag{display:inline-block;margin:0 6px 6px 0;padding:3px 10px;background:rgba(37,99,235,.15);border:1px solid rgba(59,130,246,.35);border-radius:99px;font-size:12px;transition:.18s}
+.tag:hover{background:rgba(37,99,235,.4)}
+.st{display:flex;gap:9px;margin:7px 0;align-items:flex-start}
+.st b{flex:none;width:21px;height:21px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#2563eb);display:grid;place-items:center;font-size:11px;box-shadow:0 0 10px rgba(37,99,235,.6)}
+.mob{display:none}
+@media(max-width:800px){
+ main{grid-template-columns:1fr}.mob{display:inline-block}
+ body.v-list .mapwrap,body.v-map aside{display:none}
+ aside{border-right:0}.hint{display:none}
+ #info{top:auto;left:0;width:100%;max-height:68%;border-left:0;border-top:1px solid rgba(59,130,246,.4);transform:translateY(105%);border-radius:18px 18px 0 0}
+ #info.open{transform:none}
+ #q,#q:focus{width:100%;order:5}
+}
+@media(prefers-reduced-motion:reduce){*,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body class="v-map">
+<header>
+ <div class="logo"><b>🏫</b><div><h1>UMSZKI Térkép</h1><small>Görgey Artúr u. 26.</small></div></div>
+ <button class="btn mob" id="tog" type="button">☰ Lista</button>
+ <a class="btn" href="https://umszki.edupage.org/timetable/" target="_blank" rel="noopener">📅 Órarend</a>
+ <button class="btn" id="reset" type="button">↺ Összes</button>
+ <input id="q" type="search" placeholder="Keresés (pl. 127, Matek, Váni...)" autocomplete="off" aria-label="Keresés">
+</header>
+<main>
+ <aside>
+  <div class="chips" id="chips"></div>
+  <div id="list"></div>
+  <div id="none">Nincs találat.</div>
+ </aside>
+ <div class="mapwrap" id="mapwrap"><div id="svgc"></div><div class="zc"><button id="zi" type="button" aria-label="Nagyítás" title="Nagyítás (+)">+</button><span id="zl">100%</span><button id="zo" type="button" aria-label="Kicsinyítés" title="Kicsinyítés (-)">−</button><button id="zf" type="button" aria-label="Teljes térkép" title="Teljes térkép (0)">⤢</button></div><div class="hint">Görgess a nagyításhoz · húzd a mozgatáshoz · dupla kattintás: zoom</div></div>
+ <section id="info" aria-live="polite">
+  <div class="ih"><div><span class="badge" id="iId"></span><h2 id="iName"></h2><small id="iFloor"></small></div><button class="x" id="close" type="button" aria-label="Bezárás">×</button></div>
+  <div class="ib">
+   <div class="box" id="iDesc"></div>
+   <div class="g2"><div class="box"><h4>Felelős</h4><b id="iT"></b></div><div class="box"><h4>Kapacitás</h4><b id="iC"></b></div></div>
+   <div class="box"><h4>Felszereltség</h4><div id="iE"></div></div>
+   <div class="box"><h4>📅 Teremrend</h4><div id="iR"></div></div>
+   <div class="box"><h4>Útvonal a főbejárattól</h4><div id="iP"></div></div>
+  </div>
+ </section>
+</main>
+<script>
+"use strict";
+const allRooms = [
+            { id: "2", name: "IKT1 Labor", floor: "Földszint", floorNum: 0, teacher: "Bodó A.", capacity: "32", desc: "Informatika terem (IKT1)", equipment: ["32 PC", "Projektor"], route: ["Főbejárat", "Jobbra", "Első terem"], teremrend: [], x: 480, y: 390, w: 100, h: 70, color: "#3B82F6" },
+
+
+            { id: "17", name: "ITávA2", floor: "Földszint", floorNum: 0, teacher: "Nagy Z.", capacity: "30", desc: "ITávA2 terem", equipment: ["PC-k", "Tábla"], route: ["Főbejárat", "Jobbra", "Második terem"], x: 600, y: 390, w: 100, h: 70, color: "#3B82F6" },
+            
+            { id: "127", name: "Matematika", floor: "1. Emelet", floorNum: 1, teacher: "Kovácsné", capacity: "32", desc: "Matematika szaktanterem", equipment: ["Tábla", "Projektor"], route: ["Lépcső", "1. emelet", "Balra"], x: 100, y: 230, w: 100, h: 75, color: "#06B6D4" },
+            { id: "183", name: "Angol (183)", floor: "1. Emelet", floorNum: 1, teacher: "Váni", capacity: "28", desc: "Angol nyelvi terem", equipment: ["Hangfalak"], route: ["Lépcső", "1. emelet", "Balra"], x: 210, y: 230, w: 95, h: 75, color: "#06B6D4" },
+            { id: "187", name: "Angol (187)", floor: "1. Emelet", floorNum: 1, teacher: "Váni", capacity: "28", desc: "Angol nyelvi terem", equipment: ["Hangfalak"], route: ["Lépcső", "1. emelet", "Balra"], x: 315, y: 230, w: 95, h: 75, color: "#06B6D4" },
+            { id: "211", name: "Történelem", floor: "1. Emelet", floorNum: 1, teacher: "MP", capacity: "32", desc: "Történelem terem", equipment: ["Térképek", "Projektor"], route: ["Lépcső", "1. emelet", "Szemben"], x: 425, y: 230, w: 100, h: 75, color: "#06B6D4" },
+            { id: "218", name: "Irodalom", floor: "1. Emelet", floorNum: 1, teacher: "WL", capacity: "32", desc: "Irodalom terem", equipment: ["Projektor"], route: ["Lépcső", "1. emelet", "Jobbra"], x: 535, y: 230, w: 100, h: 75, color: "#06B6D4" },
+            { id: "219", name: "Történelem (219)", floor: "1. Emelet", floorNum: 1, teacher: "MP", capacity: "32", desc: "Történelem terem", equipment: ["Térképek"], route: ["Lépcső", "1. emelet", "Jobbra"], x: 645, y: 230, w: 95, h: 75, color: "#06B6D4" },
+            { id: "F1_2", roomNo: "2", name: "Udvary Balázs", floor: "1. Emelet", floorNum: 1, teacher: "Udvary Balázs", capacity: "-", desc: "Tanterem – Udvary Balázs", equipment: [], route: ["Lépcső", "1. emelet"], x: 80, y: 205, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_4", roomNo: "4", name: "1. emeleti terem 4", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "1. emeleti terem 4", equipment: [], route: ["Lépcső", "1. emelet"], x: 203, y: 205, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_5", roomNo: "5", name: "Kluka Norbert", floor: "1. Emelet", floorNum: 1, teacher: "Kluka Norbert", capacity: "-", desc: "Tanterem – Kluka Norbert", equipment: [], route: ["Lépcső", "1. emelet"], x: 326, y: 205, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_9", roomNo: "9", name: "Bézi Barbara", floor: "1. Emelet", floorNum: 1, teacher: "Bézi Barbara", capacity: "-", desc: "Tanterem – Bézi Barbara", equipment: [], route: ["Lépcső", "1. emelet"], x: 449, y: 205, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_10", roomNo: "10", name: "Elektronika", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "Elektronika", equipment: [], route: ["Lépcső", "1. emelet"], x: 572, y: 205, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_11", roomNo: "11", name: "Barta Zoltán", floor: "1. Emelet", floorNum: 1, teacher: "Barta Zoltán", capacity: "-", desc: "Tanterem – Barta Zoltán", equipment: [], route: ["Lépcső", "1. emelet"], x: 695, y: 205, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_14", roomNo: "14", name: "Karikó-Tóth Tamás", floor: "1. Emelet", floorNum: 1, teacher: "Karikó-Tóth Tamás", capacity: "-", desc: "Tanterem – Karikó-Tóth Tamás", equipment: [], route: ["Lépcső", "1. emelet"], x: 80, y: 268, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_16", roomNo: "16", name: "Kiss Csaba", floor: "1. Emelet", floorNum: 1, teacher: "Kiss Csaba", capacity: "-", desc: "Tanterem – Kiss Csaba", equipment: [], route: ["Lépcső", "1. emelet"], x: 203, y: 268, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_17", roomNo: "17", name: "Varga Artúr", floor: "1. Emelet", floorNum: 1, teacher: "Varga Artúr", capacity: "-", desc: "Tanterem – Varga Artúr", equipment: [], route: ["Lépcső", "1. emelet"], x: 326, y: 268, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_30", roomNo: "30", name: "Vidra András", floor: "1. Emelet", floorNum: 1, teacher: "Vidra András", capacity: "-", desc: "Tanterem – Vidra András", equipment: [], route: ["Lépcső", "1. emelet"], x: 449, y: 268, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_31", roomNo: "31", name: "Kriston Aranka", floor: "1. Emelet", floorNum: 1, teacher: "Kriston Aranka", capacity: "-", desc: "Tanterem – Kriston Aranka", equipment: [], route: ["Lépcső", "1. emelet"], x: 572, y: 268, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_33", roomNo: "33", name: "Schmieder László", floor: "1. Emelet", floorNum: 1, teacher: "Schmieder László", capacity: "-", desc: "Tanterem – Schmieder László", equipment: [], route: ["Lépcső", "1. emelet"], x: 695, y: 268, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_34", roomNo: "34", name: "Nagy Ferenc", floor: "1. Emelet", floorNum: 1, teacher: "Nagy Ferenc", capacity: "-", desc: "Tanterem – Nagy Ferenc", equipment: [], route: ["Lépcső", "1. emelet"], x: 80, y: 331, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_39", roomNo: "39", name: "Gépész", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "Gépész", equipment: [], route: ["Lépcső", "1. emelet"], x: 203, y: 331, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_44", roomNo: "44", name: "Juhász Róbert", floor: "1. Emelet", floorNum: 1, teacher: "Juhász Róbert", capacity: "-", desc: "Tanterem – Juhász Róbert", equipment: [], route: ["Lépcső", "1. emelet"], x: 326, y: 331, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_46", roomNo: "46", name: "NYÁK Labor", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "NYÁK Labor", equipment: [], route: ["Lépcső", "1. emelet"], x: 449, y: 331, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_47", roomNo: "47", name: "Fresz Péter", floor: "1. Emelet", floorNum: 1, teacher: "Fresz Péter", capacity: "-", desc: "Tanterem – Fresz Péter", equipment: [], route: ["Lépcső", "1. emelet"], x: 572, y: 331, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_48", roomNo: "48", name: "Varga László", floor: "1. Emelet", floorNum: 1, teacher: "Varga László", capacity: "-", desc: "Tanterem – Varga László", equipment: [], route: ["Lépcső", "1. emelet"], x: 695, y: 331, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_52", roomNo: "52", name: "Vadai Tamás", floor: "1. Emelet", floorNum: 1, teacher: "Vadai Tamás", capacity: "-", desc: "Tanterem – Vadai Tamás", equipment: [], route: ["Lépcső", "1. emelet"], x: 80, y: 394, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_57", roomNo: "57", name: "Zabari Tibor", floor: "1. Emelet", floorNum: 1, teacher: "Zabari Tibor", capacity: "-", desc: "Tanterem – Zabari Tibor", equipment: [], route: ["Lépcső", "1. emelet"], x: 203, y: 394, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_58", roomNo: "58", name: "1. emeleti terem 58", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "1. emeleti terem 58", equipment: [], route: ["Lépcső", "1. emelet"], x: 326, y: 394, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_59", roomNo: "59", name: "Schilling Ferenc", floor: "1. Emelet", floorNum: 1, teacher: "Schilling Ferenc", capacity: "-", desc: "Tanterem – Schilling Ferenc", equipment: [], route: ["Lépcső", "1. emelet"], x: 449, y: 394, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_60", roomNo: "60", name: "1. emeleti terem 60", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "1. emeleti terem 60", equipment: [], route: ["Lépcső", "1. emelet"], x: 572, y: 394, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_60E", roomNo: "60E", name: "1. emeleti terem 60E", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "1. emeleti terem 60E", equipment: [], route: ["Lépcső", "1. emelet"], x: 695, y: 394, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_63", roomNo: "63", name: "Kriston Dávid", floor: "1. Emelet", floorNum: 1, teacher: "Kriston Dávid", capacity: "-", desc: "Tanterem – Kriston Dávid", equipment: [], route: ["Lépcső", "1. emelet"], x: 80, y: 457, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_113", roomNo: "113", name: "Tanácsterem", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "Tanácsterem", equipment: [], route: ["Lépcső", "1. emelet"], x: 203, y: 457, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_117", roomNo: "117", name: "Seyfried Katalin", floor: "1. Emelet", floorNum: 1, teacher: "Seyfried Katalin", capacity: "-", desc: "Tanterem – Seyfried Katalin", equipment: [], route: ["Lépcső", "1. emelet"], x: 326, y: 457, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_119", roomNo: "119", name: "Mackovic Andrea", floor: "1. Emelet", floorNum: 1, teacher: "Mackovic Andrea", capacity: "-", desc: "Tanterem – Mackovic Andrea", equipment: [], route: ["Lépcső", "1. emelet"], x: 449, y: 457, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_122", roomNo: "122", name: "Schuch-Takács Tímea", floor: "1. Emelet", floorNum: 1, teacher: "Schuch-Takács Tímea", capacity: "-", desc: "Tanterem – Schuch-Takács Tímea", equipment: [], route: ["Lépcső", "1. emelet"], x: 572, y: 457, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_124", roomNo: "124", name: "Tóth Irén", floor: "1. Emelet", floorNum: 1, teacher: "Tóth Irén", capacity: "-", desc: "Tanterem – Tóth Irén", equipment: [], route: ["Lépcső", "1. emelet"], x: 695, y: 457, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_126", roomNo: "126", name: "Nagy Annamária", floor: "1. Emelet", floorNum: 1, teacher: "Nagy Annamária", capacity: "-", desc: "Tanterem – Nagy Annamária", equipment: [], route: ["Lépcső", "1. emelet"], x: 80, y: 520, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_127", roomNo: "127", name: "Bakai Andrea", floor: "1. Emelet", floorNum: 1, teacher: "Bakai Andrea", capacity: "-", desc: "Tanterem – Bakai Andrea", equipment: [], route: ["Lépcső", "1. emelet"], x: 203, y: 520, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_129", roomNo: "129", name: "Pócsik Fruzsina", floor: "1. Emelet", floorNum: 1, teacher: "Pócsik Fruzsina", capacity: "-", desc: "Tanterem – Pócsik Fruzsina", equipment: [], route: ["Lépcső", "1. emelet"], x: 326, y: 520, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_130", roomNo: "130", name: "Kovács János", floor: "1. Emelet", floorNum: 1, teacher: "Kovács János", capacity: "-", desc: "Tanterem – Kovács János", equipment: [], route: ["Lépcső", "1. emelet"], x: 449, y: 520, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_131", roomNo: "131", name: "Biró Ildikó", floor: "1. Emelet", floorNum: 1, teacher: "Biró Ildikó", capacity: "-", desc: "Tanterem – Biró Ildikó", equipment: [], route: ["Lépcső", "1. emelet"], x: 572, y: 520, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_136", roomNo: "136", name: "Szabó Zsuzsanna", floor: "1. Emelet", floorNum: 1, teacher: "Szabó Zsuzsanna", capacity: "-", desc: "Tanterem – Szabó Zsuzsanna", equipment: [], route: ["Lépcső", "1. emelet"], x: 695, y: 520, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_137", roomNo: "137", name: "Varga László", floor: "1. Emelet", floorNum: 1, teacher: "Varga László", capacity: "-", desc: "Tanterem – Varga László", equipment: [], route: ["Lépcső", "1. emelet"], x: 80, y: 583, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_138", roomNo: "138", name: "Demeter Alexander", floor: "1. Emelet", floorNum: 1, teacher: "Demeter Alexander", capacity: "-", desc: "Tanterem – Demeter Alexander", equipment: [], route: ["Lépcső", "1. emelet"], x: 203, y: 583, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_139", roomNo: "139", name: "Horváth Zoltán", floor: "1. Emelet", floorNum: 1, teacher: "Horváth Zoltán", capacity: "-", desc: "Tanterem – Horváth Zoltán", equipment: [], route: ["Lépcső", "1. emelet"], x: 326, y: 583, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_143", roomNo: "143", name: "Pneumatika", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "Pneumatika", equipment: [], route: ["Lépcső", "1. emelet"], x: 449, y: 583, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_147", roomNo: "147", name: "Kudron Csaba", floor: "1. Emelet", floorNum: 1, teacher: "Kudron Csaba", capacity: "-", desc: "Tanterem – Kudron Csaba", equipment: [], route: ["Lépcső", "1. emelet"], x: 572, y: 583, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_148", roomNo: "148", name: "Horváth Zoltán", floor: "1. Emelet", floorNum: 1, teacher: "Horváth Zoltán", capacity: "-", desc: "Tanterem – Horváth Zoltán", equipment: [], route: ["Lépcső", "1. emelet"], x: 695, y: 583, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_149", roomNo: "149", name: "1. emeleti terem 149", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "1. emeleti terem 149", equipment: [], route: ["Lépcső", "1. emelet"], x: 80, y: 646, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_181", roomNo: "181", name: "Bodahelyi Éva", floor: "1. Emelet", floorNum: 1, teacher: "Bodahelyi Éva", capacity: "-", desc: "Tanterem – Bodahelyi Éva", equipment: [], route: ["Lépcső", "1. emelet"], x: 203, y: 646, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_182", roomNo: "182", name: "Hegyiné Z. Szilvia", floor: "1. Emelet", floorNum: 1, teacher: "Hegyiné Z. Szilvia", capacity: "-", desc: "Tanterem – Hegyiné Z. Szilvia", equipment: [], route: ["Lépcső", "1. emelet"], x: 326, y: 646, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_183", roomNo: "183", name: "1. emeleti terem 183", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "1. emeleti terem 183", equipment: [], route: ["Lépcső", "1. emelet"], x: 449, y: 646, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_184", roomNo: "184", name: "Nagy Krisztina", floor: "1. Emelet", floorNum: 1, teacher: "Nagy Krisztina", capacity: "-", desc: "Tanterem – Nagy Krisztina", equipment: [], route: ["Lépcső", "1. emelet"], x: 572, y: 646, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_186", roomNo: "186", name: "Barta Ilona", floor: "1. Emelet", floorNum: 1, teacher: "Barta Ilona", capacity: "-", desc: "Tanterem – Barta Ilona", equipment: [], route: ["Lépcső", "1. emelet"], x: 695, y: 646, w: 115, h: 55, color: "#06B6D4" },
+            { id: "F1_187", roomNo: "187", name: "Tanterem", floor: "1. Emelet", floorNum: 1, teacher: "-", capacity: "-", desc: "Tanterem", equipment: [], route: ["Lépcső", "1. emelet"], x: 80, y: 709, w: 115, h: 55, color: "#06B6D4" },
+            
+            
+            { id: "212", name: "Angol (212)", floor: "2. Emelet", floorNum: 2, teacher: "Váni", capacity: "28", desc: "Angol nyelvi terem", equipment: ["Hangfalak"], route: ["Lépcső", "2. emelet", "Balra"], x: 100, y: 100, w: 100, h: 75, color: "#8B5CF6" },
+            { id: "223", name: "Angol (223)", floor: "2. Emelet", floorNum: 2, teacher: "Váni", capacity: "28", desc: "Angol nyelvi terem", equipment: ["Hangfalak"], route: ["Lépcső", "2. emelet", "Balra"], x: 210, y: 100, w: 95, h: 75, color: "#8B5CF6" },
+            { id: "236", name: "Fizika", floor: "2. Emelet", floorNum: 2, teacher: "MI", capacity: "28", desc: "Fizika labor", equipment: ["Kísérletek", "Műszerek"], route: ["Lépcső", "2. emelet", "Jobbra"], x: 315, y: 100, w: 115, h: 75, color: "#8B5CF6" },
+            
+            { id: "306", name: "Matematika (306)", floor: "3. Emelet", floorNum: 3, teacher: "KK", capacity: "32", desc: "Matematika terem", equipment: ["Tábla"], route: ["Lépcső", "3. emelet", "Jobbra"], x: 440, y: 100, w: 115, h: 75, color: "#7C3AED" },
+            
+            { id: "AULA", name: "Aula", floor: "Földszint", floorNum: 0, teacher: "-", capacity: "120", desc: "Főaula", equipment: ["Padok"], route: ["Főbejárat", "Belépés"], x: 240, y: 360, w: 180, h: 120, color: "#2563EB" },
+            { id: "PORTA", name: "Porta", floor: "Földszint", floorNum: 0, teacher: "Portás", capacity: "-", desc: "Portaszolgálat", equipment: ["Kamera"], route: ["Főbejárat"], x: 140, y: 400, w: 80, h: 60, color: "#1E40AF" }
+        ];
+const TT_URL="https://umszki.edupage.org/timetable/";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const norm=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+const num=r=>r.roomNo||r.id;
+const byNum=(a,b)=>(parseInt(num(a))||0)-(parseInt(num(b))||0)||String(num(a)).localeCompare(String(num(b)),"hu");
+const FLOORS=["Földszint","1. Emelet","2. Emelet","3. Emelet"];
+let sel=null,floor="all",query="";
+allRooms.forEach(r=>{r._s=norm([r.id,r.roomNo,r.name,r.teacher==="-"?"":r.teacher,r.floor,r.desc].join(" "));});
+
+function layout(){
+ const COLS=7,CW=104,CH=56,GAP=6,LEFT=64,PAD=16,BG=18,HEAD=26;
+ const bands=[{label:"2-3. EMELET",t:r=>r.floorNum>=2},{label:"1. EMELET",t:r=>r.floorNum===1},{label:"FÖLDSZINT",t:r=>r.floorNum===0,ent:true}];
+ let y=20;const out=[];
+ bands.forEach(b=>{
+  const rs=allRooms.filter(b.t).sort(byNum),rows=Math.max(1,Math.ceil(rs.length/COLS)),h=HEAD+rows*(CH+GAP)+PAD+(b.ent?40:0);
+  rs.forEach((r,i)=>{r.x=LEFT+(i%COLS)*(CW+GAP);r.y=y+HEAD+Math.floor(i/COLS)*(CH+GAP);r.w=CW;r.h=CH;});
+  out.push({label:b.label,y,h,ent:b.ent});y+=h+BG;
+ });
+ return{bands:out,w:LEFT+COLS*(CW+GAP)+PAD,h:y};
+}
+function renderMap(){
+ const L=layout();MAPW=L.w;MAPH=L.h;
+ const gr=(id,a,b)=>`<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
+ let s=`<svg id="svg" viewBox="0 0 ${L.w} ${L.h}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Iskolatérkép"><defs>${gr("g0","#1e3a8a","#2563eb")}${gr("g1","#0c4a6e","#0ea5e9")}${gr("g2","#1e1b6e","#4f6df5")}${gr("g3","#172554","#60a5fa")}<pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#1d4ed8" stroke-opacity=".22"/></pattern></defs><rect width="${L.w}" height="${L.h}" fill="#03060f" rx="16"/><rect width="${L.w}" height="${L.h}" fill="url(#grid)"/>`;
+ L.bands.forEach(b=>{
+  s+=`<rect x="8" y="${b.y}" width="${L.w-16}" height="${b.h}" fill="#1d4ed8" fill-opacity=".07" stroke="#2563eb" stroke-opacity=".55" stroke-width="2" rx="12"/>`;
+  s+=`<text x="34" y="${b.y+b.h/2}" fill="#3b82f6" font-size="11" font-weight="800" letter-spacing="2" text-anchor="middle" transform="rotate(-90 34 ${b.y+b.h/2})">${b.label}</text>`;
+  if(b.ent){const cx=L.w/2;s+=`<rect x="${cx-35}" y="${b.y+b.h-34}" width="70" height="10" fill="#22d3ee" rx="3"/><text x="${cx}" y="${b.y+b.h-8}" fill="#93c5fd" font-size="12" font-weight="600" text-anchor="middle">Főbejárat (Görgey Artúr u.)</text>`;}
+ });
+ allRooms.forEach((r,i)=>{
+  const nm=r.name.length>15?r.name.slice(0,13)+"…":r.name;
+  s+=`<g class="room" data-i="${i}" tabindex="0" role="button" aria-label="${esc(num(r)+" "+r.name)}"><title>${esc(num(r)+" – "+r.name)}</title><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="7" fill="url(#g${Math.max(0,Math.min(3,r.floorNum|0))})"/><text x="${r.x+r.w/2}" y="${r.y+r.h/2-3}" font-size="12" font-weight="800">${esc(num(r))}</text><text x="${r.x+r.w/2}" y="${r.y+r.h/2+12}" font-size="9" style="fill:#dbeafe">${esc(nm)}</text></g>`;
+ });
+ $("svgc").innerHTML=s+"</svg>";
+}
+function renderList(){
+ let h="";
+ FLOORS.forEach(f=>{
+  const rs=allRooms.filter(r=>r.floor===f).sort(byNum);if(!rs.length)return;
+  h+=`<div class="fl" data-f="${esc(f)}">${esc(f)}</div>`;
+  rs.forEach(r=>{const i=allRooms.indexOf(r);h+=`<button type="button" class="it" data-i="${i}"><i>${esc(num(r))}</i><span>${esc(r.name)}</span>${r.teacher&&r.teacher!=="-"&&r.teacher!==r.name?`<em>${esc(r.teacher)}</em>`:""}</button>`;});
+ });
+ $("list").innerHTML=h;
+ $("chips").innerHTML=[["all","Mind"],...FLOORS.map(f=>[f,f.replace(". Emelet",". em.")])].map(([v,l])=>`<button type="button" class="chip" data-v="${esc(v)}">${esc(l)}</button>`).join("");
+}
+function match(r){return(floor==="all"||r.floor===floor)&&(!query||query.split(/\s+/).every(w=>r._s.includes(w)));}
+function applyFilter(){
+ let n=0;
+ const rooms=$("svgc").querySelectorAll(".room"),items=$("list").querySelectorAll(".it");
+ rooms.forEach(g=>{const ok=match(allRooms[g.dataset.i]);g.classList.toggle("dim",!ok);});
+ items.forEach(b=>{const ok=match(allRooms[b.dataset.i]);b.hidden=!ok;if(ok)n++;});
+ $("list").querySelectorAll(".fl").forEach(f=>{let e=f.nextElementSibling,any=false;while(e&&e.classList.contains("it")){if(!e.hidden)any=true;e=e.nextElementSibling;}f.hidden=!any;});
+ $("chips").querySelectorAll(".chip").forEach(c=>c.classList.toggle("on",c.dataset.v===floor));
+ $("none").style.display=n?"none":"block";
+}
+function markSel(){
+ $("svgc").querySelectorAll(".room").forEach(g=>g.classList.toggle("sel",sel!==null&&+g.dataset.i===sel));
+ $("list").querySelectorAll(".it").forEach(b=>b.classList.toggle("on",sel!==null&&+b.dataset.i===sel));
+}
+function fill(id,html){$(id).innerHTML=html;}
+function select(i,scroll){
+ const r=allRooms[i];if(!r)return;sel=i;markSel();
+ $("iId").textContent=num(r);$("iName").textContent=r.name;$("iFloor").textContent=r.floor;
+ fill("iDesc",esc(r.desc||"Nincs leírás."));
+ $("iT").textContent=r.teacher&&r.teacher!=="-"?r.teacher:"Nincs adat";
+ $("iC").textContent=r.capacity&&r.capacity!=="-"?r.capacity+" fő":"Nincs adat";
+ fill("iE",(r.equipment&&r.equipment.length)?r.equipment.map(e=>`<span class="tag">${esc(e)}</span>`).join(""):'<span style="color:#94a3b8">Nincs adat</span>');
+ const tr=Array.isArray(r.teremrend)?r.teremrend:[];
+ fill("iR",(tr.length?tr.map(e=>`<div class="st">${esc(typeof e==="string"?e:JSON.stringify(e))}</div>`).join(""):'<span style="color:#94a3b8">Ehhez a teremhez nincs mentett órarend.</span>')+`<p style="margin:8px 0 0"><a class="btn" style="display:inline-block" href="${TT_URL}" target="_blank" rel="noopener">Megnyitás az EduPage-en ↗</a></p>`);
+ fill("iP",(r.route||[]).map((s,k)=>`<div class="st"><b>${k+1}</b><span>${esc(s)}</span></div>`).join("")||"–");
+ $("info").classList.add("open");
+ const b=$("list").querySelector(`.it[data-i="${i}"]`);if(scroll&&b&&b.scrollIntoView)b.scrollIntoView({block:"nearest"});
+ try{history.replaceState(null,"","#"+encodeURIComponent(r.id));}catch(e){}
+ if(window.innerWidth<=800){document.body.className="v-map";$("tog").textContent="☰ Lista";}
+ focusRoom(r);
+}
+function closeInfo(){sel=null;$("info").classList.remove("open");markSel();try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}}
+function resetAll(){query="";floor="all";$("q").value="";closeInfo();applyFilter();fit();}
+
+/*ZOOM*/let MAPW=1,MAPH=1,vb={x:0,y:0,w:1,h:1},anim=0,moved=false;
+const KMAX=8;
+function setVB(v){
+ const k=Math.min(KMAX,Math.max(1,MAPW/v.w)),w=MAPW/k,h=MAPH/k;
+ vb={x:Math.min(Math.max(0,v.x),MAPW-w),y:Math.min(Math.max(0,v.y),MAPH-h),w,h};
+ const s=$("svg");if(s)s.setAttribute("viewBox",vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
+ $("zl").textContent=Math.round(k*100)+"%";
+}
+function goTo(v,ms){
+ if(window.cancelAnimationFrame)cancelAnimationFrame(anim);
+ if(!ms||!window.requestAnimationFrame){setVB(v);return;}
+ const a={x:vb.x,y:vb.y,w:vb.w},t0=performance.now();
+ const step=t=>{const p=Math.min(1,Math.max(0,(t-t0)/ms)),e=1-Math.pow(1-p,3);
+  setVB({x:a.x+(v.x-a.x)*e,y:a.y+(v.y-a.y)*e,w:a.w+(v.w-a.w)*e});
+  if(p<1)anim=requestAnimationFrame(step);};
+ anim=requestAnimationFrame(step);
+}
+function zoomAt(f,px,py,ms){
+ const k=Math.min(KMAX,Math.max(1,MAPW/vb.w*f)),w=MAPW/k,h=MAPH/k;
+ goTo({x:px-(px-vb.x)*(w/vb.w),y:py-(py-vb.y)*(h/vb.h),w,h},ms);
+}
+function toSvg(cx,cy){
+ const s=$("svg"),m=s&&s.getScreenCTM&&s.getScreenCTM();
+ if(!m||!window.DOMPoint)return{x:vb.x+vb.w/2,y:vb.y+vb.h/2};
+ const p=new DOMPoint(cx,cy).matrixTransform(m.inverse());return{x:p.x,y:p.y};
+}
+const mid=()=>({x:vb.x+vb.w/2,y:vb.y+vb.h/2});
+function fit(){goTo({x:0,y:0,w:MAPW,h:MAPH},350);}
+function focusRoom(r){
+ const k=2.6,w=MAPW/k,h=MAPH/k,mob=window.innerWidth<=800;
+ goTo({x:r.x+r.w/2-w*(mob?.5:.4),y:r.y+r.h/2-h*(mob?.3:.5),w,h},450);
+}
+function initZoom(){
+ const mw=$("mapwrap"),ptr=new Map();let drag=null,pinch=0;
+ const dist=()=>{const p=[...ptr.values()];return Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1;};
+ mw.addEventListener("wheel",e=>{e.preventDefault();const p=toSvg(e.clientX,e.clientY);zoomAt(Math.exp(-Math.max(-120,Math.min(120,e.deltaY))*.0018),p.x,p.y,0);},{passive:false});
+ mw.addEventListener("pointerdown",e=>{if(e.target.closest&&e.target.closest(".zc"))return;ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;drag=ptr.size===1?{x:e.clientX,y:e.clientY}:null;if(ptr.size===2)pinch=dist();});
+ mw.addEventListener("pointermove",e=>{
+  if(!ptr.has(e.pointerId))return;ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptr.size===2){const d=dist(),p=[...ptr.values()],c=toSvg((p[0].x+p[1].x)/2,(p[0].y+p[1].y)/2);zoomAt(d/pinch,c.x,c.y,0);pinch=d;moved=true;return;}
+  if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(!moved&&Math.hypot(dx,dy)<6)return;
+  moved=true;mw.classList.add("grab");
+  const s=$("svg").getScreenCTM&&$("svg").getScreenCTM(),sc=s?s.a:1;
+  if(window.cancelAnimationFrame)cancelAnimationFrame(anim);
+  setVB({x:vb.x-dx/sc,y:vb.y-dy/sc,w:vb.w});drag={x:e.clientX,y:e.clientY};
+ });
+ const up=e=>{ptr.delete(e.pointerId);mw.classList.remove("grab");pinch=0;const r=[...ptr.values()][0];drag=r?{x:r.x,y:r.y}:null;};
+ mw.addEventListener("pointerup",up);mw.addEventListener("pointercancel",up);
+ mw.addEventListener("click",e=>{if(moved){e.stopPropagation();e.preventDefault();moved=false;}},true);
+ mw.addEventListener("dblclick",e=>{const p=toSvg(e.clientX,e.clientY);zoomAt(2,p.x,p.y,250);});
+ $("zi").addEventListener("click",()=>{const c=mid();zoomAt(1.6,c.x,c.y,250);});
+ $("zo").addEventListener("click",()=>{const c=mid();zoomAt(1/1.6,c.x,c.y,250);});
+ $("zf").addEventListener("click",fit);
+ document.addEventListener("keydown",e=>{if(/INPUT|TEXTAREA/.test((e.target||{}).tagName||""))return;const c=mid();
+  if(e.key==="+"||e.key==="=")zoomAt(1.4,c.x,c.y,200);else if(e.key==="-"||e.key==="_")zoomAt(1/1.4,c.x,c.y,200);else if(e.key==="0")fit();});
+}
+function init(){
+ renderMap();renderList();applyFilter();setVB({x:0,y:0,w:MAPW,h:MAPH});initZoom();
+ const pick=e=>{const t=e.target.closest("[data-i]");if(t)select(+t.dataset.i,e.currentTarget.id==="list");};
+ $("svgc").addEventListener("click",pick);$("list").addEventListener("click",pick);
+ $("svgc").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pick(e);}});
+ $("chips").addEventListener("click",e=>{const c=e.target.closest(".chip");if(c){floor=c.dataset.v;applyFilter();}});
+ $("q").addEventListener("input",e=>{query=norm(e.target.value).trim();applyFilter();});
+ $("q").addEventListener("keydown",e=>{if(e.key==="Enter"){const f=allRooms.findIndex(match);if(query&&f>=0)select(f,true);}});
+ $("close").addEventListener("click",closeInfo);$("reset").addEventListener("click",resetAll);
+ $("tog").addEventListener("click",()=>{const l=document.body.classList.contains("v-list");document.body.className=l?"v-map":"v-list";$("tog").textContent=l?"☰ Lista":"🗺 Térkép";});
+ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInfo();});
+ try{const id=decodeURIComponent(location.hash.slice(1));const i=allRooms.findIndex(r=>r.id===id);if(i>=0)select(i,true);}catch(e){}
+}
+init();
+</script>
+</body>
+</html>
